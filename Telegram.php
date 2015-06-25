@@ -26,7 +26,7 @@ class Telegram
     public function __construct($token)
     {
         $this->curl = curl_init();
-        $this->$urlPrefix = "https://api.telegram.org/bot{$token}/";
+        $this->urlPrefix = "https://api.telegram.org/bot{$token}/";
     }
 
     /**
@@ -49,8 +49,10 @@ class Telegram
     public function call($method, array $data = null)
     {
         $options = [
-            CURLOPT_URL => $this->curl . $method,
-            CURLOPT_RETURNTRANSFER => true
+            CURLOPT_URL => $this->urlPrefix . $method,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => null,
+            CURLOPT_POSTFIELDS => null
         ];
 
         if ($data) {
@@ -60,8 +62,21 @@ class Telegram
 
         curl_setopt_array($this->curl, $options);
 
-        $response = curl_exec($this->curl);
-        return json_decode($response, $this->returnArray);
+        $response = json_decode(curl_exec($this->curl), $this->returnArray);
+
+        if ($this->returnArray) {
+            if (!$response['ok']) {
+                throw new Exception($response['description'], $response['error_code']);
+            }
+
+            return $response['result'];
+        }
+
+        if (!$response->ok) {
+            throw new Exception($response->description, $response->error_code);
+        }
+
+        return $response->result;
     }
 
     /**
@@ -72,7 +87,7 @@ class Telegram
      */
     function __call($name, $arguments)
     {
-        return $this->call($name, $arguments);
+        return $this->call($name, $arguments ? $arguments[0] : null);
     }
 
 
