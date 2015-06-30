@@ -20,6 +20,12 @@ class Telegram
     protected $returnArray = true;
 
     /**
+     * Possible attachment fields
+     * @var array
+     */
+    protected static $attachments = ['photo', 'sticker', 'audio', 'document', 'video'];
+
+    /**
      * Constructor
      * @param $token
      */
@@ -44,6 +50,7 @@ class Telegram
      * Call method
      * @param string $method
      * @param array $data
+     * @throws Exception
      * @return mixed
      */
     public function call($method, array $data = null)
@@ -56,8 +63,16 @@ class Telegram
         ];
 
         if ($data) {
+
+            foreach (static::$attachments as $field) {
+                if (isset($data[$field])) {
+                    $data[$field] = $this->curlFile($data[$field]);
+                    break;
+                }
+            }
+
             $options[CURLOPT_POST] = true;
-            $options[CURLOPT_POSTFIELDS] = http_build_query($data);
+            $options[CURLOPT_POSTFIELDS] = $data;
         }
 
         curl_setopt_array($this->curl, $options);
@@ -97,6 +112,35 @@ class Telegram
     public function __destruct()
     {
         $this->curl and curl_close($this->curl);
+    }
+
+    /**
+     * Create curl file
+     * @param string $path
+     * @throws Exception
+     * @return CURLFile|string
+     */
+    private function curlFile($path)
+    {
+        if (is_array($path)) {
+            if (!isset($path['file_id'])) {
+                throw new Exception('Input file id');
+            }
+
+            return $path['file_id'];
+        }
+
+        $realPath = realpath($path);
+
+        if (!$realPath) {
+            throw new Exception('File not found');
+        }
+
+        if (class_exists('CURLFile')) {
+            return new CURLFile($realPath);
+        }
+
+        return '@' . $realPath;
     }
 
 } 
